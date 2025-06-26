@@ -158,38 +158,54 @@ class Assinaturas:
             return None
 
     def listar_documentos(self):
-        if not self.uuid_cofre or not self.uuid_pasta:
-            print("Cofre ou pasta não selecionado. Use as opções do menu para selecionar.")
+        if not self.uuid_cofre:
+            print("Cofre não selecionado. Use as opções do menu para selecionar.")
             return
 
         url = f"{self.base_url}/documents"
-
         params = {
             "tokenAPI": self.token,
-            "cryptKey": self.cryptKey,
-            "uuid_safe": self.uuid_cofre,
-            "folder": self.uuid_pasta
+            "cryptKey": self.cryptKey
         }
 
         headers = {"accept": "application/json"}
 
-        response = requests.get(url, headers=headers, params=params)
+        try:
+            response = requests.get(url, headers=headers, params=params)
+            print(f"\n🔍 resposta: {response.text}")
 
-        if response.status_code == 200:
-            documentos = response.json()
-            if not documentos:
-                print("Nenhum documento encontrado nesta pasta.")
+            if response.status_code != 200:
+                print("Erro ao listar documentos:", response.status_code, response.text)
                 return
 
-            print("\n Documentos encontrados:")
-            for doc in documentos:
-                nome = doc.get("name", "[Sem nome]")
-                uuid = doc.get("uuid", "[Sem UUID]")
-                data = doc.get("created", "[Sem data]")
-                print(f" - {nome} | UUID: {uuid} | Criado em: {data}")
-        else:
-            print("Erro ao listar documentos:", response.status_code, response.text)
+            data = response.json()
+            documentos = data[1:] if isinstance(data, list) else []
 
+            # Corrigir o filtro do campo pasta aqui:
+            documentos_filtrados = [
+                doc for doc in documentos
+                if doc.get("uuidSafe") == self.uuid_cofre and (
+                    self.uuid_pasta is None or doc.get("uuidFolder") == self.uuid_pasta
+                )
+            ]
+
+            if not documentos_filtrados:
+                print("Nenhum documento encontrado no cofre/pasta selecionado.")
+                return
+
+            cofre_nome = self.cofre_selecionado or "[Cofre desconhecido]"
+            pasta_nome = self.pasta_selecionada or "[Fora de pasta]"
+            print(f"\n📁 Documentos no cofre '{cofre_nome}' / pasta '{pasta_nome}':\n")
+
+            for doc in documentos_filtrados:
+                nome = doc.get("nameDoc", "[Sem nome]")
+                uuid = doc.get("uuidDoc", "[Sem UUID]")
+                status = doc.get("statusName", "[Sem status]")
+                data = doc.get("created", "[Sem data]")
+                print(f" - {nome} | UUID: {uuid} | Status: {status} | Criado em: {data}")
+
+        except Exception as e:
+            print("Erro ao conectar ao servidor:", e)
     def upload_documento(self):
         if not self.uuid_cofre or not self.uuid_pasta:
             print("Cofre ou pasta não selecionado. Use as opções do menu para selecionar.")

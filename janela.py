@@ -17,7 +17,8 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("D4Sign Gerenciador")
-        self.state('zoomed')  # inicia maximizado
+        #self.state('zoomed')  # inicia maximizado
+        
         self.configure(bg=BG_COLOR)
 
         self.style = ttk.Style(self)
@@ -32,10 +33,10 @@ class App(tk.Tk):
     def set_style(self):
         self.style.theme_use('clam')
 
-        self.style.configure('TLabel', background=BG_COLOR, foreground=FG_COLOR, font=('Helvetica', 12, 'bold'))
+        self.style.configure('TLabel', background=BG_COLOR, foreground=FG_COLOR, font=('Segoe UI', 12, 'bold'))
         self.style.configure('TFrame', background=BG_COLOR)
-        self.style.configure('TLabelframe', background=BG_COLOR, foreground=ACCENT_COLOR, font=('Helvetica', 14, 'bold'))
-        self.style.configure('TLabelframe.Label', background=BG_COLOR, foreground=ACCENT_COLOR, font=('Helvetica', 15, 'bold'))
+        self.style.configure('TLabelframe', background=BG_COLOR, foreground=ACCENT_COLOR, font=('Segoe UI', 14, 'bold'))
+        self.style.configure('TLabelframe.Label', background=BG_COLOR, foreground=ACCENT_COLOR, font=('Segoe UI', 15, 'bold'))
 
         self.style.configure('TCombobox',
                              fieldbackground=BG_COLOR,
@@ -44,12 +45,12 @@ class App(tk.Tk):
                              selectbackground=ACCENT_COLOR,
                              selectforeground=FG_COLOR,
                              arrowcolor=ACCENT_COLOR,
-                             font=('Helvetica', 12, 'bold'))
+                             font=('Segoe UI', 12, 'bold'))
 
         self.style.configure('TButton',
                              background=ACCENT_COLOR,
                              foreground=FG_COLOR,
-                             font=('Helvetica', 11, 'bold'),
+                             font=('Segoe UI', 11, 'bold'),
                              padding=(6, 3))
         self.style.map('TButton',
                        background=[('active', BTN_HOVER_COLOR), ('!active', ACCENT_COLOR)],
@@ -188,36 +189,54 @@ class App(tk.Tk):
                 messagebox.showerror("Erro", f"Falha ao criar pasta: {e}")
 
     def listar_documentos(self):
-        if not self.assinador.uuid_cofre or not self.assinador.uuid_pasta:
-            messagebox.showerror("Erro", "Selecione um cofre e uma pasta primeiro.")
+        if not self.uuid_cofre:
+            print("Cofre não selecionado. Use as opções do menu para selecionar.")
             return
 
-        url = f"{self.assinador.base_url}/documents"
+        url = f"{self.base_url}/documents"
         params = {
-            "tokenAPI": self.assinador.token,
-            "cryptKey": self.assinador.cryptKey,
-            "uuid_safe": self.assinador.uuid_cofre,
-            "folder": self.assinador.uuid_pasta
+            "tokenAPI": self.token,
+            "cryptKey": self.cryptKey
         }
 
         headers = {"accept": "application/json"}
+
         try:
             response = requests.get(url, headers=headers, params=params)
-            if response.status_code == 200:
-                documentos = response.json()
-                if not documentos:
-                    self.log("Nenhum documento encontrado nesta pasta.")
-                    return
-                self.log("Documentos encontrados:")
-                for doc in documentos:
-                    nome = doc.get("name", "[Sem nome]")
-                    uuid = doc.get("uuid", "[Sem UUID]")
-                    data = doc.get("created", "[Sem data]")
-                    self.log(f" - {nome} | UUID: {uuid} | Criado em: {data}")
-            else:
-                self.log(f"Erro ao listar documentos: {response.status_code} - {response.text}")
+            print(response.text)
+
+            if response.status_code != 200:
+                print("Erro ao listar documentos:", response.status_code, response.text)
+                return
+
+            data = response.json()
+            documentos = data[1:] if isinstance(data, list) else []
+
+            # Filtrar por cofre e, se definido, por pasta
+            documentos_filtrados = [
+                doc for doc in documentos
+                if doc.get("uuidSafe") == self.uuid_cofre and (
+                    self.uuid_pasta is None or doc.get("uuid_folder") == self.uuid_pasta
+                )
+            ]
+
+            if not documentos_filtrados:
+                print("Nenhum documento encontrado no cofre/pasta selecionado.")
+                return
+
+            cofre_nome = self.cofre_selecionado or "[Cofre desconhecido]"
+            pasta_nome = self.pasta_selecionada or "[Fora de pasta]"
+            print(f"\n📁 Documentos no cofre '{cofre_nome}' / pasta '{pasta_nome}':\n")
+
+            for doc in documentos_filtrados:
+                nome = doc.get("nameDoc", "[Sem nome]")
+                uuid = doc.get("uuidDoc", "[Sem UUID]")
+                status = doc.get("statusName", "[Sem status]")
+                data = doc.get("created", "[Sem data]")
+                print(f" - {nome} | UUID: {uuid} | Status: {status} | Criado em: {data}")
+
         except Exception as e:
-            self.log(f"Erro ao conectar ao servidor: {e}")
+            print("Erro ao conectar ao servidor:", e)
 
     def upload_documento(self):
         if not self.assinador.uuid_cofre or not self.assinador.uuid_pasta:
