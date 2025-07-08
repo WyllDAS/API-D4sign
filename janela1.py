@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog, simpledialog
-from main import Assinaturas
+from main1 import Assinaturas
 import requests
 
 # Cores da empresa
@@ -9,9 +9,14 @@ FG_COLOR = "#FFFFFF"
 ACCENT_COLOR = "#003366"
 BTN_HOVER_COLOR = "#005599"
 
-# Token e cryptKey fixos
-TOKEN = 'live_06af34ccfb4af78705087108c672fcd083608e3e6ff31bdb5a01305de5600826'
-CRYPTKEY = 'live_crypt_7xNn4VIDjbL1Ko0rI7dqd0xBBMROHYOf'
+# SANDBOX
+#TOKEN = 'live_06af34ccfb4af78705087108c672fcd083608e3e6ff31bdb5a01305de5600826'
+#CRYPTKEY = 'live_crypt_7xNn4VIDjbL1Ko0rI7dqd0xBBMROHYOf'
+
+#PRODUCAO
+TOKEN = 'live_4b0975fe2f8fa2ecd93228b429a0f784ce412c3fbf425661768bcccc6991f76f'
+CRYPTKEY = 'live_crypt_NTjzsJU2ouHFbNzgkL9QnlSwqcBcQwhJ'
+
 
 class App(tk.Tk):
     def __init__(self):
@@ -65,7 +70,7 @@ class App(tk.Tk):
         frame_docs.pack(fill="x", padx=15, pady=10)
         ttk.Button(frame_docs, text="Listar Documentos", command=self.listar_documentos).pack(side="left", padx=8, pady=4)
         ttk.Button(frame_docs, text="Upload Documento", command=self.upload_documento).pack(side="left", padx=8, pady=4)
-
+        ttk.Button(frame_docs, text="Adicionar Signatário e Enviar", command=self.adicionar_signatario_e_enviar).pack(side="left", padx=8, pady=4)
         # Output / Logs
         frame_out = ttk.LabelFrame(self, text="Saída / Logs")
         frame_out.pack(fill="both", expand=True, padx=15, pady=15)
@@ -182,7 +187,6 @@ class App(tk.Tk):
 
         try:
             response = requests.get(url, headers=headers, params=params)
-            self.log(f"\n🔍 URL usada: {response.url}")
 
             if response.status_code != 200:
                 self.log(f"Erro ao listar documentos: {response.status_code} - {response.text}")
@@ -211,10 +215,8 @@ class App(tk.Tk):
                 return
 
             cofre_nome = self.assinador.cofre_selecionado or "[Desconhecido]"
-            pasta_nome = self.assinador.pasta_selecionada or "[Fora de pasta]"
-            pasta_info = f"na pasta '{pasta_nome}'" if pasta_nome else "fora de pasta"
 
-            self.log(f"\n📁 Documentos no cofre '{cofre_nome}' {pasta_info}:\n")
+            self.log(f"\n📁 Documentos no cofre '{cofre_nome}':\n")
 
             for doc in documentos_filtrados:
                 nome = doc.get("nameDoc", "[Sem nome]")
@@ -240,6 +242,33 @@ class App(tk.Tk):
             self.log("Upload realizado com sucesso!")
         except Exception as e:
             self.log(f"Erro no upload: {e}")
+
+    
+    def adicionar_signatario_e_enviar(self):
+        if not self.assinador.uuid_cofre:
+            messagebox.showerror("Erro", "Selecione um cofre primeiro.")
+            return
+
+        uuid_doc = simpledialog.askstring("UUID do Documento", "Informe o UUID do documento:")
+        if not uuid_doc:
+            return
+
+        email = simpledialog.askstring("Email do Signatário", "Informe o e-mail do signatário:")
+        if not email:
+            return
+
+        nome = simpledialog.askstring("Nome do Signatário", "Informe o nome do signatário:")
+        if not nome:
+            return
+
+        try:
+            sucesso = self.assinador.adicionar_signatario_e_enviar(uuid_doc, email, nome)
+            if sucesso:
+                self.log("✅ Signatário adicionado e documento enviado com sucesso.")
+            else:
+                self.log("⚠️ Ocorreu um problema ao adicionar o signatário ou enviar o documento.")
+        except Exception as e:
+            self.log(f"Erro ao adicionar signatário e enviar: {e}")
 
 if __name__ == "__main__":
     app = App()
