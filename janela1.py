@@ -71,6 +71,10 @@ class App(tk.Tk):
         ttk.Button(frame_docs, text="Listar Documentos", command=self.listar_documentos).pack(side="left", padx=8, pady=4)
         ttk.Button(frame_docs, text="Upload Documento", command=self.upload_documento).pack(side="left", padx=8, pady=4)
         ttk.Button(frame_docs, text="Adicionar Signatário e Enviar", command=self.adicionar_signatario_e_enviar).pack(side="left", padx=8, pady=4)
+        #por lote
+        ttk.Button(frame_docs, text="Processar Lote JSON", command=self.executar_lote).pack(side="left", padx=8, pady=4)
+
+        
         # Output / Logs
         frame_out = ttk.LabelFrame(self, text="Saída / Logs")
         frame_out.pack(fill="both", expand=True, padx=15, pady=15)
@@ -243,7 +247,26 @@ class App(tk.Tk):
         except Exception as e:
             self.log(f"Erro no upload: {e}")
 
-    
+    def executar_lote(self):
+        if not self.assinador.uuid_cofre or not self.assinador.uuid_pasta:
+            messagebox.showerror("Erro", "Selecione um cofre e uma pasta primeiro.")
+            return
+
+        caminho = filedialog.askopenfilename(
+            title="Selecione o arquivo JSON",
+            filetypes=[("JSON Files", "*.json")]
+        )
+
+        if not caminho:
+            return
+
+        try:
+            self.assinador.processar_lote_de_assinaturas(caminho)
+            self.log("✅ Lote processado.")
+        except Exception as e:
+            self.log(f"❌ Erro ao processar lote: {e}")
+
+
     def adicionar_signatario_e_enviar(self):
         if not self.assinador.uuid_cofre:
             messagebox.showerror("Erro", "Selecione um cofre primeiro.")

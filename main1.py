@@ -255,7 +255,8 @@ class Assinaturas:
                 "foreign": "0",
                 "certificadoicpbr": "0",
                 "assinatura_presencial": "0",
-                "name": nome
+                "name": nome,
+                "marca": "ASSBENEF"
             }]
         }
 
@@ -281,6 +282,71 @@ class Assinaturas:
         else:
             print("❌ Erro ao enviar para assinatura:", enviar_response.text)
             return False
+    
+    def processar_lote_de_assinaturas(self, caminho_json):
+        if not self.uuid_cofre or not self.uuid_pasta:
+            print("❌ Cofre e/ou pasta não selecionados.")
+            return
+
+        try:
+            with open(caminho_json, "r", encoding="utf-8") as f:
+                lista = json.load(f)
+        except Exception as e:
+            print(f"Erro ao carregar JSON: {e}")
+            return
+
+        for idx, item in enumerate(lista, 1):
+            nome = item.get("nome")
+            email = item.get("email")
+            caminho_arquivo = item.get("arquivo")
+
+            if not nome or not email or not caminho_arquivo or not os.path.exists(caminho_arquivo):
+                print(f"❌ Entrada {idx}: dados inválidos ou arquivo não encontrado.")
+                continue
+
+            print(f"\n📄 [{idx}] Processando: {nome} - {email}")
+
+            try:
+                # 1. Upload do documento
+                uuid_doc = self.upload_documento_retornando_uuid(caminho_arquivo)
+                if not uuid_doc:
+                    print("❌ Falha no upload.")
+                    continue
+
+                # 2. Adicionar signatário + enviar
+                sucesso = self.adicionar_signatario_e_enviar(uuid_doc, email, nome)
+                if not sucesso:
+                    print("❌ Falha ao adicionar/enviar.")
+                    continue
+
+                print("✅ Documento processado com sucesso.")
+
+            except Exception as e:
+                print(f"Erro ao processar entrada {idx}: {e}")
+    
+    def upload_documento_retornando_uuid(self, caminho_pdf):
+        url = f"{self.base_url}/upload"
+        params = {
+            "tokenAPI": self.token,
+            "cryptKey": self.cryptKey,
+            "uuid_cofre": self.uuid_cofre,
+            "uuid_folder": self.uuid_pasta
+        }
+
+        with open(caminho_pdf, 'rb') as file_data:
+            files = {
+                "file": (os.path.basename(caminho_pdf), file_data, "application/pdf")
+            }
+            response = requests.post(url, params=params, files=files)
+
+        if response.status_code == 200:
+            data = response.json()
+            uuid_doc = data.get("uuid")
+            return uuid_doc
+        else:
+            print("Erro no upload:", response.text)
+            return None
+
     def menu(self):
         while True:
             print("\nEscolha uma ação:")
