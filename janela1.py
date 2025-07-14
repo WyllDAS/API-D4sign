@@ -65,6 +65,13 @@ class App(tk.Tk):
         self.combo_pastas.bind("<<ComboboxSelected>>", self.on_pasta_selecionada)
         ttk.Button(frame_pasta, text="Criar Pasta", command=self.criar_pasta).pack(side="left", padx=8, pady=4)
 
+        #documentos listados
+        frame_documentos = ttk.LabelFrame(self, text="Documentos Disponíveis")
+        frame_documentos.pack(fill="x", padx=15, pady=10)
+        ttk.Label(frame_documentos, text="Selecione Documento:").pack(side="left", padx=5)
+        self.combo_documentos = ttk.Combobox(frame_documentos, state="readonly", width=60)
+        self.combo_documentos.pack(side="left", padx=5, pady=5)
+        self.combo_documentos.bind("<<ComboboxSelected>>", self.on_documento_selecionado)
         # Documentos
         frame_docs = ttk.LabelFrame(self, text="Documentos")
         frame_docs.pack(fill="x", padx=15, pady=10)
@@ -138,6 +145,39 @@ class App(tk.Tk):
         self.combo_pastas.current(0)
         self.on_pasta_selecionada()
 
+    def atualizar_documentos(self):
+        documentos = self.assinador.listar_documentos()
+        if not documentos:
+            self.combo_documentos['values'] = []
+            self.assinador.documento_selecionado = None
+            self.assinador.uuid_documento = None
+            return
+
+        nomes = [doc.get("nameDoc", "[Sem nome]") for doc in documentos]
+        self.combo_documentos['values'] = nomes
+
+        # Mapeia nome -> UUID
+        self.documentos_por_nome = {
+            doc.get("nameDoc", "[Sem nome]"): doc.get("uuidDoc", None)
+            for doc in documentos
+        }
+
+        self.combo_documentos.current(0)
+        self.on_documento_selecionado()
+
+    def on_documento_selecionado(self, event=None):
+        nome_doc = self.combo_documentos.get()
+        if not nome_doc:
+            self.assinador.documento_selecionado = None
+            self.assinador.uuid_documento = None
+            return
+
+        uuid = self.documentos_por_nome.get(nome_doc)
+        if uuid:
+            self.assinador.documento_selecionado = nome_doc
+            self.assinador.uuid_documento = uuid
+            self.log(f"Documento selecionado: {nome_doc} | UUID: {uuid}")
+
     def on_pasta_selecionada(self, event=None):
         nome_pasta = self.combo_pastas.get()
         if not nome_pasta:
@@ -152,6 +192,7 @@ class App(tk.Tk):
                 self.assinador.uuid_pasta = p["uuid_folder"]
                 self.log(f"Pasta selecionada: {nome_pasta}")
                 break
+        self.atualizar_documentos()
 
     def criar_pasta(self):
         nome = simpledialog.askstring("Criar Pasta", "Nome da nova pasta:")
