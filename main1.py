@@ -204,54 +204,64 @@ class Assinaturas:
 
         except Exception as e:
             print("Erro ao conectar ao servidor:", e)
-    def upload_documento(self):
+    def upload_documento(self, caminho):
         if not self.uuid_cofre or not self.uuid_pasta:
-            print("Cofre ou pasta não selecionado. Use as opções do menu para selecionar.")
+            print("Cofre ou pasta não selecionado.")
             return
-
-        caminho = input("Informe o caminho completo do PDF: ").strip()
 
         if not os.path.isfile(caminho):
-            print("Arquivo não encontrado. Verifique o caminho.")
+            print("Arquivo não encontrado.")
             return
 
-        url = f"{self.base_url}/documents/upload?tokenAPI={self.token}&cryptKey={self.cryptKey}"
+        filename = os.path.basename(caminho)
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in ['.pdf', '.doc', '.docx', '.jpg', '.png', '.bmp']:
+            print("❌ Extensão de arquivo não suportada pela D4Sign.")
+            return
+
+        url = f"{self.base_url}/documents/{self.uuid_cofre}/upload?tokenAPI={self.token}&cryptKey={self.cryptKey}"
+        print("📡 Endpoint:", url)
+
         data = {
             "uuid_folder": self.uuid_pasta
         }
 
         with open(caminho, "rb") as f:
+            content = f.read()
+            print(f"📄 Tamanho do arquivo lido: {len(content)} bytes")
+            f.seek(0)
+
             files = {
-                "file": f
+                "file": (filename, f, "application/pdf")  # define nome e tipo
             }
 
             response = requests.post(url, data=data, files=files)
 
+        print("📥 Status code:", response.status_code)
+        print("📨 Resposta:", response.text)
+
         if response.status_code == 200:
-            print("✅ Upload realizado com sucesso!")
             try:
                 data = response.json()
                 uuid_doc = data.get("uuid")
-                print(f"📄 UUID do documento: {uuid_doc}")
-                print("Resposta:", response.json())
+                print(f"✅ Upload realizado. UUID: {uuid_doc}")
             except Exception:
-                print("⚠️ Não foi possível converter resposta para JSON.")
+                print("⚠️ Upload OK, mas resposta não é JSON.")
         else:
-            print("❌ Falha no upload:", response.status_code)
-            print(response.text)
+            print("❌ Erro ao fazer upload.")
 
     def adicionar_signatario_e_enviar(self, uuid_doc, email, nome):
         if not self.uuid_cofre:
             print("Cofre não selecionado.")
             return False
 
-        # Endpoint para adicionar signatário
+        # Adicionar signatário
         url_add_signatario = f"{self.base_url}/documents/{uuid_doc}/createlist?tokenAPI={self.token}&cryptKey={self.cryptKey}"
 
         payload = {
             "signers": [{
                 "email": email,
-                "act": "1",  # assinatura com certificado
+                "act": "1",
                 "foreign": "0",
                 "certificadoicpbr": "0",
                 "assinatura_presencial": "0",
@@ -273,8 +283,15 @@ class Assinaturas:
             return False
 
         # Enviar para assinatura
-        url_enviar = f"{self.base_url}/documents/{uuid_doc}/sendtosign?tokenAPI={self.token}&cryptKey={self.cryptKey}"
-        enviar_response = requests.post(url_enviar, headers=headers)
+        url_enviar = f"{self.base_url}/documents/{uuid_doc}/sendtosigner?tokenAPI={self.token}&cryptKey={self.cryptKey}"
+
+        payload_envio = {
+            "message": f"Olá {nome}, você tem um documento para assinar.",
+            "skip_email": "0",  # "1" se for embed ou assinatura presencial
+            "workflow": "0"     # "1" se quiser seguir a ordem
+        }
+
+        enviar_response = requests.post(url_enviar, headers=headers, json=payload_envio)
 
         if enviar_response.status_code == 200:
             print("📨 Documento enviado para assinatura com sucesso.")
@@ -300,53 +317,58 @@ class Assinaturas:
             email = item.get("email")
             caminho_arquivo = item.get("arquivo")
 
-            if not nome or not email or not caminho_arquivo or not os.path.exists(caminho_arquivo):
+            if not nome or not email or not caminho_arquivo or not os.path.isfile(caminho_arquivo):
                 print(f"❌ Entrada {idx}: dados inválidos ou arquivo não encontrado.")
                 continue
 
             print(f"\n📄 [{idx}] Processando: {nome} - {email}")
 
-            try:
-                # 1. Upload do documento
-                uuid_doc = self.upload_documento_retornando_uuid(caminho_arquivo)
-                if not uuid_doc:
-                    print("❌ Falha no upload.")
-                    continue
+            # 1. Upload do documento
+            uuid_doc = self.upload_documento_retornando_uuid(caminho_arquivo)
+            if not uuid_doc:
+                print("❌ Falha no upload.")
+                continue
 
-                # 2. Adicionar signatário + enviar
-                sucesso = self.adicionar_signatario_e_enviar(uuid_doc, email, nome)
-                if not sucesso:
-                    print("❌ Falha ao adicionar/enviar.")
-                    continue
+            # 2. Adicionar signatário e enviar para assinatura
+            sucesso = self.adicionar_signatario_e_enviar(uuid_doc, email, nome)
+            if not sucesso:
+                print("❌ Falha ao adicionar/enviar.")
+                continue
 
-                print("✅ Documento processado com sucesso.")
-
-            except Exception as e:
-                print(f"Erro ao processar entrada {idx}: {e}")
+            print("✅ Documento processado com sucesso.")
     
-    def upload_documento_retornando_uuid(self, caminho_pdf):
-        url = f"{self.base_url}/upload"
-        params = {
-            "tokenAPI": self.token,
-            "cryptKey": self.cryptKey,
-            "uuid_cofre": self.uuid_cofre,
-            "uuid_folder": self.uuid_pasta
-        }
-
-        with open(caminho_pdf, 'rb') as file_data:
-            files = {
-                "file": (os.path.basename(caminho_pdf), file_data, "application/pdf")
-            }
-            response = requests.post(url, params=params, files=files)
-
-        if response.status_code == 200:
-            data = response.json()
-            uuid_doc = data.get("uuid")
-            return uuid_doc
-        else:
-            print("Erro no upload:", response.text)
+    def upload_documento_retornando_uuid(self, caminho):
+        if not self.uuid_cofre or not self.uuid_pasta:
+            print("Cofre ou pasta não selecionado.")
             return None
 
+        if not os.path.isfile(caminho):
+            print("Arquivo não encontrado.")
+            return None
+
+        filename = os.path.basename(caminho)
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in ['.pdf', '.doc', '.docx', '.jpg', '.png', '.bmp']:
+            print("❌ Extensão de arquivo não suportada pela D4Sign.")
+            return None
+
+        url = f"{self.base_url}/documents/{self.uuid_cofre}/upload?tokenAPI={self.token}&cryptKey={self.cryptKey}"
+        data = {"uuid_folder": self.uuid_pasta}
+
+        with open(caminho, "rb") as f:
+            files = {"file": (filename, f, "application/pdf")}
+            response = requests.post(url, data=data, files=files)
+
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                return data.get("uuid")
+            except:
+                print("⚠️ Upload OK, mas resposta não é JSON.")
+                return None
+        else:
+            print("❌ Erro ao fazer upload:", response.text)
+            return None
     def menu(self):
         while True:
             print("\nEscolha uma ação:")
