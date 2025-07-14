@@ -153,6 +153,19 @@ class App(tk.Tk):
                 self.log(f"Pasta selecionada: {nome_pasta}")
                 break
 
+    def criar_pasta(self):
+        nome = simpledialog.askstring("Criar Pasta", "Nome da nova pasta:")
+        if nome:
+            if not self.assinador.uuid_cofre:
+                messagebox.showerror("Erro", "Selecione um cofre antes de criar uma pasta.")
+                return
+            try:
+                self.assinador.criar_pastas(self.assinador.uuid_cofre, nome)
+                self.log(f"Pasta '{nome}' criada.")
+                self.atualizar_pastas()
+            except Exception as e:
+                messagebox.showerror("Erro", f"Falha ao criar pasta: {e}")
+
     def criar_cofre(self):
         nome = simpledialog.askstring("Criar Cofre", "Nome do novo cofre:")
         if nome:
@@ -162,19 +175,6 @@ class App(tk.Tk):
                 self.atualizar_cofres()
             except Exception as e:
                 messagebox.showerror("Erro", f"Falha ao criar cofre: {e}")
-
-    def criar_pasta(self):
-        nome = simpledialog.askstring("Criar Pasta", "Nome da nova pasta:")
-        if nome:
-            if not self.assinador.uuid_cofre:
-                messagebox.showerror("Erro", "Selecione um cofre antes de criar uma pasta.")
-                return
-            try:
-                self.assinador.criar_pastas(nome)
-                self.log(f"Pasta '{nome}' criada.")
-                self.atualizar_pastas()
-            except Exception as e:
-                messagebox.showerror("Erro", f"Falha ao criar pasta: {e}")
 
     def listar_documentos(self):
         if not self.assinador.uuid_cofre:

@@ -87,9 +87,28 @@ class Assinaturas:
         print(f"\n📁 Ambiente carregado: Cofre = {self.cofre_selecionado}, Pasta = {self.pasta_selecionada}")
 
     def criar_cofre(self, nome_cofre):
-        url = f"{self.base_url}/batches?tokenAPI={self.token}&cryptKey={self.cryptKey}"
+        url = f"{self.base_url}/safe?tokenAPI={self.token}&cryptKey={self.cryptKey}"
 
-        payload = { "keys": [f"{nome_cofre}"] } #nome do cofre
+        payload = {
+            "name": nome_cofre
+        }
+
+        headers = {
+            "accept": "application/json",
+            "content-type": "application/json"
+        }
+
+        response = requests.post(url, json=payload, headers=headers)
+        if response.status_code != 200:
+            raise Exception(f"Erro ao criar cofre: {response.status_code} - {response.text}")
+
+    def criar_pastas(self, uuid_cofre, nome_pasta):
+        url = f"{self.base_url}/folders/{uuid_cofre}/create?tokenAPI={self.token}&cryptKey={self.cryptKey}"
+
+        payload = {
+            "folder_name": nome_pasta
+        }
+
         headers = {
             "accept": "application/json",
             "content-type": "application/json"
@@ -97,19 +116,6 @@ class Assinaturas:
 
         response = requests.post(url, json=payload, headers=headers)
 
-        print("Resposta:", response.status_code, response.text)
-
-    def criar_pastas (self,pasta):
-
-        url = f"{self.base_url}/folders/87eceead-4c5d-4f90-b164-01b20cbb02af/create?tokenAPI={self.token}&cryptKey={self.cryptKey}"
-
-        payload = { "folder_name": f"{pasta}" }
-        headers = {
-            "accept": "application/json",
-            "content-type": "application/json"
-        }
-
-        response = requests.post(url, json=payload, headers=headers)
         print("Resposta:", response.status_code, response.text)
         
 
