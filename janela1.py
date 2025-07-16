@@ -1,7 +1,10 @@
 import tkinter as tk
+import os
 from tkinter import ttk, messagebox, filedialog, simpledialog
 from main1 import Assinaturas
 import requests
+import pandas as pd 
+from datetime import datetime
 
 # Cores da empresa
 BG_COLOR = "#121212"
@@ -26,10 +29,11 @@ class App(tk.Tk):
 
         self.style = ttk.Style(self)
         self.set_style()
-
+        self.state("zoomed")
         self.assinador = Assinaturas(TOKEN, CRYPTKEY)
         self.create_widgets()
         self.atualizar_cofres()
+
 
     def set_style(self):
         self.style.theme_use('clam')
@@ -47,8 +51,34 @@ class App(tk.Tk):
                              arrowcolor=FG_COLOR)
 
     def create_widgets(self):
-        # Cofres
-        frame_cofre = ttk.LabelFrame(self, text="Cofres")
+        #scrol 
+        container = ttk.Frame(self)
+        container.pack(fill="both", expand=True)
+
+        canvas = tk.Canvas(container, background=BG_COLOR, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview, style='Vertical.TScrollbar')
+        self.scrollable_frame = ttk.Frame(canvas)
+
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Vincula rolagem com a roda do mouse
+        self.scrollable_frame.bind_all("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1*(e.delta/120)), "units"))
+
+        # 🧩 Agora, todos os widgets devem ser adicionados a self.scrollable_frame
+        self._add_interface_components()
+#-------------------------------------------------
+        
+    def _add_interface_components(self):
+        frame_cofre = ttk.LabelFrame(self.scrollable_frame, text="Cofres")
         frame_cofre.pack(fill="x", padx=15, pady=10)
         ttk.Label(frame_cofre, text="Selecione Cofre:").pack(side="left", padx=5)
         self.combo_cofres = ttk.Combobox(frame_cofre, state="readonly", width=40)
@@ -56,8 +86,7 @@ class App(tk.Tk):
         self.combo_cofres.bind("<<ComboboxSelected>>", self.on_cofre_selecionado)
         ttk.Button(frame_cofre, text="Criar Cofre", command=self.criar_cofre).pack(side="left", padx=8, pady=4)
 
-        # Pastas
-        frame_pasta = ttk.LabelFrame(self, text="Pastas")
+        frame_pasta = ttk.LabelFrame(self.scrollable_frame, text="Pastas")  # ✅
         frame_pasta.pack(fill="x", padx=15, pady=10)
         ttk.Label(frame_pasta, text="Selecione Pasta:").pack(side="left", padx=5)
         self.combo_pastas = ttk.Combobox(frame_pasta, state="readonly", width=40)
@@ -65,37 +94,35 @@ class App(tk.Tk):
         self.combo_pastas.bind("<<ComboboxSelected>>", self.on_pasta_selecionada)
         ttk.Button(frame_pasta, text="Criar Pasta", command=self.criar_pasta).pack(side="left", padx=8, pady=4)
 
-        #documentos listados
-        frame_documentos = ttk.LabelFrame(self, text="Documentos Disponíveis")
+        frame_documentos = ttk.LabelFrame(self.scrollable_frame, text="Documentos Disponíveis")  # ✅
         frame_documentos.pack(fill="x", padx=15, pady=10)
         ttk.Label(frame_documentos, text="Selecione Documento:").pack(side="left", padx=5)
         self.combo_documentos = ttk.Combobox(frame_documentos, state="readonly", width=60)
         self.combo_documentos.pack(side="left", padx=5, pady=5)
         self.combo_documentos.bind("<<ComboboxSelected>>", self.on_documento_selecionado)
-        # Documentos
-        frame_docs = ttk.LabelFrame(self, text="Documentos")
+
+        frame_docs = ttk.LabelFrame(self.scrollable_frame, text="Documentos")  # ✅
         frame_docs.pack(fill="x", padx=15, pady=10)
         ttk.Button(frame_docs, text="Listar Documentos", command=self.listar_documentos).pack(side="left", padx=8, pady=4)
         ttk.Button(frame_docs, text="Upload Documento", command=self.upload_documento).pack(side="left", padx=8, pady=4)
         ttk.Button(frame_docs, text="Adicionar Signatário e Enviar", command=self.adicionar_signatario_e_enviar).pack(side="left", padx=8, pady=4)
-        #por lote
         ttk.Button(frame_docs, text="Processar Lote JSON", command=self.executar_lote).pack(side="left", padx=8, pady=4)
 
-        
-        # Output / Logs
-        frame_out = ttk.LabelFrame(self, text="Saída / Logs")
+        frame_out = ttk.LabelFrame(self.scrollable_frame, text="Saída / Logs")  # ✅
         frame_out.pack(fill="both", expand=True, padx=15, pady=15)
         frame_text_scroll = ttk.Frame(frame_out)
         frame_text_scroll.pack(fill="both", expand=True)
+
         self.text_out = tk.Text(frame_text_scroll, state="disabled", wrap="word", bg=BG_COLOR, fg=FG_COLOR,
                                 insertbackground=FG_COLOR, font=('Consolas', 11), relief='flat')
         self.text_out.pack(side="left", fill="both", expand=True)
         scrollbar = ttk.Scrollbar(frame_text_scroll, orient="vertical", command=self.text_out.yview,
-                                  style='Vertical.TScrollbar')
+                                style='Vertical.TScrollbar')
         scrollbar.pack(side="right", fill="y")
         self.text_out.config(yscrollcommand=scrollbar.set)
 
-        ttk.Button(self, text="Limpar Log", command=self.limpar_log).pack(pady=(0, 15))
+        # ✅ Também adicione este botão dentro do scrollable_frame
+        ttk.Button(self.scrollable_frame, text="Limpar Log", command=self.limpar_log).pack(pady=(0, 15))
 
     def log(self, msg):
         self.text_out.config(state="normal")
@@ -262,13 +289,47 @@ class App(tk.Tk):
             cofre_nome = self.assinador.cofre_selecionado or "[Desconhecido]"
 
             self.log(f"\n📁 Documentos no cofre '{cofre_nome}':\n")
+            documentos_exportar = []
 
             for doc in documentos_filtrados:
                 nome = doc.get("nameDoc", "[Sem nome]")
                 uuid = doc.get("uuidDoc", "[Sem UUID]")
                 status = doc.get("statusName", "[Sem status]")
-                data = doc.get("created", "[Sem data]")
-                self.log(f" - {nome} | UUID: {uuid} | Status: {status} | Criado em: {data}")
+                safe = doc.get("safeName", "[Sem cofre]")
+
+                self.log(f" - {nome} | UUID: {uuid} | Status: {status} | Cofre: {safe}")
+
+                documentos_exportar.append({
+                    "Nome": nome,
+                    "UUID": uuid,
+                    "Status": status,
+                    "Cofre": safe
+                })
+
+            # 🧾 Após listar, perguntar onde salvar
+            if documentos_exportar:
+                pasta_destino = filedialog.askdirectory(title="Selecione a pasta para salvar o Excel")
+
+                if pasta_destino:
+                    agora = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    nome_arquivo = f"documentos_d4sign_{agora}.xlsx"
+                    caminho_completo = os.path.join(pasta_destino, nome_arquivo)
+
+                    try:
+                        df = pd.DataFrame(documentos_exportar)
+                        df.to_excel(caminho_completo, index=False)
+                        self.log(f"\n✅ Arquivo Excel salvo com sucesso:\n{caminho_completo}")
+                    except Exception as e:
+                        self.log(f"\n❌ Erro ao salvar Excel: {e}")
+                else:
+                    self.log("Operação cancelada: Nenhuma pasta foi selecionada.")
+
+            for doc in documentos_filtrados:
+                nome = doc.get("nameDoc", "[Sem nome]")
+                uuid = doc.get("uuidDoc", "[Sem UUID]")
+                status = doc.get("statusName", "[Sem status]")
+                safe = doc.get("safeName","[Sem confre]")
+                self.log(f" - {nome} | UUID: {uuid} | Status: {status} | Cofre: {safe}")
 
         except Exception as e:
             self.log(f"Erro ao conectar ao servidor: {e}")
