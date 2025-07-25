@@ -5,6 +5,7 @@ from main1 import Assinaturas
 import requests
 import pandas as pd 
 from datetime import datetime
+import subprocess
 
 # Cores da empresa
 BG_COLOR = "#121212"
@@ -75,6 +76,29 @@ class App(tk.Tk):
 
         # 🧩 Agora, todos os widgets devem ser adicionados a self.scrollable_frame
         self._add_interface_components()
+        def voltar_para_propostas():
+            try:
+                subprocess.Popen(["python", "proposta-app1.py"], shell=True)
+            except Exception as e:
+                messagebox.showerror("Erro", f"Não foi possível abrir o gerador de propostas:\n{e}")
+
+        # Criar um frame de linha com dois frames: vazio à esquerda e botões à direita
+        linha_topo = ttk.Frame(self.scrollable_frame)
+        linha_topo.pack(fill="x", pady=10)
+
+        # Frame vazio que expande e empurra os botões para a direita
+        espaco = ttk.Frame(linha_topo)
+        espaco.pack(side="left", expand=True)
+
+        # Frame com os botões
+        frame_botoes_direita = ttk.Frame(linha_topo)
+        frame_botoes_direita.pack(side="right", padx=10)
+
+        # Botões
+        ttk.Button(frame_botoes_direita, text="📄 Propostas", command=voltar_para_propostas).pack(side="left", padx=5)
+        ttk.Button(frame_botoes_direita, text="🚪 Sair", command=self.destroy).pack(side="left", padx=5)
+        
+
 #-------------------------------------------------
         
     def _add_interface_components(self):

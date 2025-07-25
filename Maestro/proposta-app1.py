@@ -106,7 +106,7 @@ def criar_interface():
     frame_topo.pack(fill=X, padx=20, pady=10)
 
     frame_topo.columnconfigure(0, weight=1)
-    frame_topo.columnconfigure(1, weight=1)
+    frame_topo.columnconfigure(1, weight=2)
     frame_topo.columnconfigure(2, weight=1)
 
     # Imagem
@@ -114,11 +114,12 @@ def criar_interface():
     image_tk = ImageTk.PhotoImage(imagem)
     imagem_label = ttk.Label(frame_topo, image=image_tk)
     imagem_label.image = image_tk
-    imagem_label.grid(row=0, column=1, pady=(0,10))
+    #imagem_label.grid(row=0, column=1, pady=(0,10))
+    imagem_label.grid(row=0, column=0, sticky="w")
 
     # Título
     titulo = ttk.Label(frame_topo, text="PROPOSTAS - PROJETO S", font=("Segoe UI", 16, "bold"))
-    titulo.grid(row=1, column=1, pady=(0,10))
+    titulo.grid(row=0, column=1, pady=(0,10))
 
     # Botões topo direito (envio, sair)
     frame_botoes_direita = ttk.Frame(frame_topo)
