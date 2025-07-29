@@ -32,7 +32,7 @@ def run_script_as_admin(script_path):
 
         # Executa como administrador (Windows)
         subprocess.run(
-            ['powershell', '-Command', f'Start-Process python -ArgumentList "{script_full}" -Verb RunAs'],
+            ['powershell','-WindowStyle','Hidden', '-Command', f'Start-Process python -ArgumentList "{script_full}" -Verb RunAs'],
             shell=True
         )
     except Exception as e:
@@ -53,7 +53,7 @@ def criar_interface():
     ttk.Button(frame, text="📄 CONTRATOS", command=lambda: run_script_as_admin(SCRIPT_CONTRATOS)).pack(pady=20, ipadx=20)
     ttk.Button(frame, text="📨 ENVIO", command=lambda: run_script_as_admin(SCRIPT_ENVIO)).pack(pady=20, ipadx=30)
 
-    ttk.Label(root, text="© SEIN - 2025", font=("Segoe UI", 10)).pack(side="bottom", pady=10)
+    ttk.Label(root, text="© INNOV - 2025", font=("Segoe UI", 10)).pack(side="bottom", pady=10)
 
     root.mainloop()
 

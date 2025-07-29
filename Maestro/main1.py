@@ -1,6 +1,8 @@
 import requests
 import json
 import os
+from tkinter import messagebox
+from datetime import datetime, timedelta
 
 
 class Assinaturas:
@@ -294,10 +296,6 @@ class Assinaturas:
             return False
     
     def processar_lote_de_assinaturas(self, caminho_json):
-        if not self.uuid_cofre or not self.uuid_pasta:
-            print("❌ Cofre e/ou pasta não selecionados.")
-            return
-
         try:
             with open(caminho_json, "r", encoding="utf-8") as f:
                 lista = json.load(f)
@@ -305,30 +303,104 @@ class Assinaturas:
             print(f"Erro ao carregar JSON: {e}")
             return
 
+        self.listar_cofres()  # Atualiza os cofres disponíveis
+
         for idx, item in enumerate(lista, 1):
             nome = item.get("nome")
             email = item.get("email")
             caminho_arquivo = item.get("arquivo")
+            vendedor = item.get("vendedor")
 
-            if not nome or not email or not caminho_arquivo or not os.path.isfile(caminho_arquivo):
-                print(f"❌ Entrada {idx}: dados inválidos ou arquivo não encontrado.")
+            if not nome or not email or not caminho_arquivo or not vendedor:
+                print(f"❌ Entrada {idx}: dados inválidos ou incompletos.")
                 continue
 
-            print(f"\n📄 [{idx}] Processando: {nome} - {email}")
+            if not os.path.isfile(caminho_arquivo):
+                print(f"❌ Arquivo não encontrado: {caminho_arquivo}")
+                continue
 
-            # 1. Upload do documento
+            print(f"\n📄 [{idx}] Processando: {nome} - {email} | Vendedor: {vendedor}")
+
+            # ✅ 1. Verifica se cofre do vendedor existe
+            if vendedor not in self.cofres:
+                print(f"🆕 Cofre '{vendedor}' não encontrado. Criando...")
+                try:
+                    self.criar_cofre(vendedor)
+                except Exception as e:
+                    msg = f"❌ Erro ao criar cofre '{vendedor}': {e}"
+                    print(msg)
+                    messagebox.showerror("Erro ao Criar Cofre", msg)
+                    continue
+                self.listar_cofres()  # Atualiza lista após criação
+
+            self.cofre_selecionado = vendedor
+            self.uuid_cofre = self.cofres[vendedor]
+
+            # ✅ 2. Verifica ou cria pasta padrão "Propostas"
+            # Calcular vigência do próximo mês
+            hoje = datetime.today()
+            primeiro_proximo_mes = (hoje.replace(day=1) + timedelta(days=32)).replace(day=1)
+            vigencia_nome = f"Vigência {primeiro_proximo_mes.strftime('%d.%m')}"
+
+            pastas = self.listar_pastas(vendedor)
+            self.uuid_pasta = None
+            for pasta in pastas or []:
+                if pasta.get("name") == vigencia_nome:
+                    self.pasta_selecionada = vigencia_nome
+                    self.uuid_pasta = pasta.get("uuid_folder")
+                    break
+
+            if not self.uuid_pasta:
+                print(f"📁 Pasta '{vigencia_nome}' não encontrada. Criando...")
+                try:
+                    self.criar_pastas(self.uuid_cofre, vigencia_nome)
+                except Exception as e:
+                    print(f"❌ Erro ao criar pasta: {e}")
+                    continue
+
+                pastas = self.listar_pastas(vendedor)
+                for pasta in pastas or []:
+                    if pasta.get("name") == vigencia_nome:
+                        self.pasta_selecionada = vigencia_nome
+                        self.uuid_pasta = pasta.get("uuid_folder")
+                        break
+
+            if not self.uuid_pasta:
+                print("❌ Falha ao obter UUID da pasta.")
+                continue
+
+            if not self.uuid_pasta:
+                print("📁 Pasta 'Propostas' não encontrada. Criando...")
+                try:
+                    self.criar_pastas(self.uuid_cofre, "Propostas")
+                except Exception as e:
+                    print(f"❌ Erro ao criar pasta: {e}")
+                    continue
+
+                pastas = self.listar_pastas(vendedor)
+                for pasta in pastas or []:
+                    if pasta.get("name") == "Propostas":
+                        self.pasta_selecionada = "Propostas"
+                        self.uuid_pasta = pasta.get("uuid_folder")
+                        break
+
+            if not self.uuid_pasta:
+                print("❌ Falha ao obter UUID da pasta.")
+                continue
+
+            # ✅ 3. Upload do documento
             uuid_doc = self.upload_documento_retornando_uuid(caminho_arquivo)
             if not uuid_doc:
                 print("❌ Falha no upload.")
                 continue
 
-            # 2. Adicionar signatário e enviar para assinatura
+            # ✅ 4. Adiciona signatário e envia
             sucesso = self.adicionar_signatario_e_enviar(uuid_doc, email, nome)
             if not sucesso:
                 print("❌ Falha ao adicionar/enviar.")
                 continue
 
-            print("✅ Documento processado com sucesso.")
+            print("✅ Documento enviado com sucesso.")
     
     def upload_documento_retornando_uuid(self, caminho):
         if not self.uuid_cofre or not self.uuid_pasta:

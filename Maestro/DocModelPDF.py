@@ -134,7 +134,9 @@ def criar_proposta(arquivo,diretorio,linha_inicio,linha_fim):
     'Dep 1 IDADE': str, 
     'Titular IDADE': str, 
     'NÚMERO': str, 
-    'DDD CELULAR': str
+    'DDD CELULAR': str,
+    'CPF': str,
+    'DATA DE NASCIMENTO':str
 })
     # Substituindo NaN por string vazia em todo o DataFrame
     df = df.fillna('')
@@ -871,7 +873,8 @@ def criar_proposta(arquivo,diretorio,linha_inicio,linha_fim):
             log_contratos.append({
                 "nome": proposta_dados.get("{{NOME}}", ""),
                 "email": proposta_dados.get("{{EMAIL}}", ""),
-                "arquivo": caminho_arquivo
+                "arquivo": caminho_arquivo,
+                "vendedor": linha_cliente.get("VENDEDOR", "")
             })
     with open(os.path.join(diretorio, "log_contratos.json"), "w", encoding="utf-8") as f:
         json.dump(log_contratos, f, indent=2, ensure_ascii=False)
